@@ -34,7 +34,6 @@ st.title("AI Sentiment & Tagging Analytics")
 
 st.write("Upload Excel/CSV with **Comment** and **Source** columns")
 st.write("Only **1 excel sheet with 10 rows are process othervise give error.** ")
-st.write("Abuse comments will be highlighted in **red color in Excel**")
 
 uploaded_file = st.file_uploader("Upload File", type=["xlsx", "csv"])
 
