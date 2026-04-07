@@ -16,12 +16,21 @@ model = genai.GenerativeModel("gemini-2.5-flash")
 # ----------------------------
 # Streamlit UI
 # ----------------------------
-st.title("AI Sentiment & Tagging Analytics")
+
+st.set_page_config(
+    page_title="Gozoop AI Sentiment Analytics",
+    page_icon="https://media.licdn.com/dms/image/v2/C510BAQGIE1KrFwlsZA/company-logo_200_200/company-logo_200_200/0/1631433137278/gozoop_pvt_ltd_logo?e=2147483647&v=beta&t=f5MM3KJNijSFtWzJMXQmcJqVp_psiLhT2pPxLDTOsss",
+    layout="centered"
+)
 
 st.image(
-    "https://img-cdn.publive.online/fit-in/1280x960/filters:format(webp)/afaqs/media/media_files/2025/02/20/7Uc7VtYsot7Og24EJCmF.png",
+    "https://media.licdn.com/dms/image/v2/C510BAQGIE1KrFwlsZA/company-logo_200_200/company-logo_200_200/0/1631433137278/gozoop_pvt_ltd_logo?e=2147483647&v=beta&t=f5MM3KJNijSFtWzJMXQmcJqVp_psiLhT2pPxLDTOsss",
     width=200
 )
+
+st.title("AI Sentiment & Tagging Analytics")
+
+
 
 st.write("Upload Excel/CSV with **Comment** and **Source** columns")
 st.write("Only **1 excel sheet with 10 rows are process othervise give error.** ")
