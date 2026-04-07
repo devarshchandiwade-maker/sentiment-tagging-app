@@ -9,7 +9,7 @@ from openpyxl.styles import PatternFill
 # ----------------------------
 # Gemini API Key
 # ----------------------------
-genai.configure(api_key="AIzaSyDNCHihIix6RuUW0hMxObR97NFWv6JV1I8")
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 model = genai.GenerativeModel("gemini-2.5-flash")
 
