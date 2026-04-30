@@ -124,7 +124,7 @@ def analyze_comment(comment, tag_list, context):
                     ]
                 }
             ],
-            max_tokens= 500 
+            max_tokens= 1000 
         )
 
         text = response.choices[0].message.content
