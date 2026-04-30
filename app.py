@@ -15,7 +15,7 @@ import os
 client = OpenRouter(
     api_key=st.secrets["API_KEY"]
 )
-
+# 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
 # ----------------------------
 # Gemini API Key
 # ----------------------------
@@ -45,12 +45,14 @@ st.title("AI Sentiment & Tagging Analytics")
 st.write("Upload Excel/CSV with **Comment** and **Source** columns")
 st.write("**Please note that we are currently using a trial version of the software. As a result, we can only process one Excel sheet with a maximum of 10 rows per run. Anything exceeding these limits will trigger an error.**")
 
-uploaded_file = st.file_uploader("Upload File", type=["xlsx", "csv"])
-
 user_context = st.text_area(
     "Enter Context about the data (e.g., episode info, event, brand tone)",
     height=150
 )
+
+uploaded_file = st.file_uploader("Upload File", type=["xlsx", "csv"])
+
+
 # ----------------------------
 # Gemini Function
 # ----------------------------
@@ -124,7 +126,7 @@ def analyze_comment(comment, tag_list, context):
                     ]
                 }
             ],
-            max_tokens= 1000 
+            max_tokens= 500 
         )
 
         text = response.choices[0].message.content
@@ -152,18 +154,15 @@ def analyze_comment(comment, tag_list, context):
 
 
 # ----------------------------
-# Auto Processing
+# Auto Processing Trigger
 # ----------------------------
-if uploaded_file:
+if uploaded_file and user_context.strip():
 
     # Read file
     if uploaded_file.name.endswith(".csv"):
         df = pd.read_csv(uploaded_file)
     else:
         df = pd.read_excel(uploaded_file)
-
-    st.subheader("Preview Data")
-    st.dataframe(df.head())
 
     if "Comment" not in df.columns:
         st.error("Comment column not found")
@@ -181,119 +180,111 @@ if uploaded_file:
     if "tag_list" not in st.session_state:
         st.session_state.tag_list = []
 
-    # ----------------------------
-    # Auto Processing
-    # ----------------------------
-    if st.button("Start Processing"):
+    progress_bar = st.progress(0)
+    status_text = st.empty()
 
-        progress_bar = st.progress(0)
-        status_text = st.empty()
+    total_rows = len(df)
+    batch_size = 5
 
-        total_rows = len(df)
-        batch_size = 5
+    while st.session_state.processed_rows < total_rows:
 
-        while st.session_state.processed_rows < total_rows:
+        start = st.session_state.processed_rows
+        end = start + batch_size
 
-            start = st.session_state.processed_rows
-            end = start + batch_size
+        batch_df = df.iloc[start:end]
 
-            batch_df = df.iloc[start:end]
-
-            status_text.info(
-                f"Processing rows {start+1} to {min(end, total_rows)}"
-            )
-
-            tags_list = []
-            sentiment_list = []
-            abuse_list = []
-
-            for i, row in batch_df.iterrows():
-
-                comment = row["Comment"]
-
-                tag, sentiment, abuse = analyze_comment(
-                    comment,
-                    st.session_state.tag_list,
-                    user_context
-                )
-
-                if tag and tag not in st.session_state.tag_list:
-                    st.session_state.tag_list.append(tag)
-
-                tags_list.append(tag)
-                sentiment_list.append(sentiment)
-                abuse_list.append(abuse)
-
-                time.sleep(10)
-
-            batch_df["Tag"] = tags_list
-            batch_df["Sentiment"] = sentiment_list
-            batch_df["Abuse"] = abuse_list
-
-            st.session_state.result_df = pd.concat(
-                [st.session_state.result_df, batch_df],
-                ignore_index=True
-            )
-
-            st.session_state.processed_rows += batch_size
-
-            progress = st.session_state.processed_rows / total_rows
-            progress_bar.progress(min(progress, 1.0))
-
-        status_text.success("All rows processed successfully")
-
-            # ----------------------------
-        # Show Results
-        # ----------------------------
-        st.subheader("Processed Data")
-        st.dataframe(st.session_state.result_df)
-
-        output_file = "sentiment_result.xlsx"
-        st.session_state.result_df.to_excel(output_file, index=False)
-
-        # ----------------------------
-        # Apply Red Color to Abuse Rows
-        # ----------------------------
-        wb = load_workbook(output_file)
-        ws = wb.active
-
-        red_fill = PatternFill(
-            start_color="FFCCCC",
-            end_color="FFCCCC",
-            fill_type="solid"
+        status_text.info(
+            f"Processing rows {start+1} to {min(end, total_rows)}"
         )
 
-        for row in range(2, ws.max_row + 1):
+        tags_list = []
+        sentiment_list = []
+        abuse_list = []
 
-            abuse_value = ws[f"D{row}"].value
+        for i, row in batch_df.iterrows():
 
-            if abuse_value == "Yes":
-                for col in range(1, ws.max_column + 1):
-                    ws.cell(row=row, column=col).fill = red_fill
+            comment = row["Comment"]
 
-        wb.save(output_file)
-
-        # ----------------------------
-        # Download Button
-        # ----------------------------
-        with open(output_file, "rb") as f:
-            st.download_button(
-                label="Download Result Excel",
-                data=f,
-                file_name="sentiment_result.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-        # ----------------------------
-        # Tag List
-        # ----------------------------
-        if st.session_state.tag_list:
-
-            st.subheader("Generated Tag List")
-
-            tag_df = pd.DataFrame(
+            tag, sentiment, abuse = analyze_comment(
+                comment,
                 st.session_state.tag_list,
-                columns=["Tags"]
+                user_context
             )
 
-            st.dataframe(tag_df)
+            if tag and tag not in st.session_state.tag_list:
+                st.session_state.tag_list.append(tag)
+
+            tags_list.append(tag)
+            sentiment_list.append(sentiment)
+            abuse_list.append(abuse)
+
+            time.sleep(10)
+
+        batch_df["Tag"] = tags_list
+        batch_df["Sentiment"] = sentiment_list
+        batch_df["Abuse"] = abuse_list
+
+        st.session_state.result_df = pd.concat(
+            [st.session_state.result_df, batch_df],
+            ignore_index=True
+        )
+
+        st.session_state.processed_rows += batch_size
+
+        progress = st.session_state.processed_rows / total_rows
+        progress_bar.progress(min(progress, 1.0))
+
+    status_text.success("All rows processed successfully")
+
+    # ----------------------------
+    # Show Results
+    # ---------------------------
+    # status_text.success("All rows processed successfully")
+
+    output_file = "sentiment_result.xlsx"
+    st.session_state.result_df.to_excel(output_file, index=False)
+
+
+    # ----------------------------
+    # Apply Red Color to Abuse Rows
+    # ----------------------------
+    wb = load_workbook(output_file)
+    ws = wb.active
+
+    red_fill = PatternFill(
+        start_color="FFCCCC",
+        end_color="FFCCCC",
+        fill_type="solid"
+    )
+
+    for row in range(2, ws.max_row + 1):
+        abuse_value = ws[f"D{row}"].value
+        if abuse_value == "Yes":
+            for col in range(1, ws.max_column + 1):
+                ws.cell(row=row, column=col).fill = red_fill
+
+    wb.save(output_file)
+
+    # ----------------------------
+    # Download Button
+    # ----------------------------
+    with open(output_file, "rb") as f:
+        st.download_button(
+            label="Download Result Excel",
+            data=f,
+            file_name="sentiment_result.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    # ----------------------------
+    # Tag List
+    # ----------------------------
+    if st.session_state.tag_list:
+        st.subheader("Generated Tag List")
+
+        tag_df = pd.DataFrame(
+            st.session_state.tag_list,
+            columns=["Tags"]
+        )
+
+        st.dataframe(tag_df)
