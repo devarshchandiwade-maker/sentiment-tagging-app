@@ -15,7 +15,7 @@ import os
 client = OpenRouter(
     api_key=st.secrets["API_KEY"]
 )
-# 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
+# 
 # ----------------------------
 # Gemini API Key
 # ----------------------------
