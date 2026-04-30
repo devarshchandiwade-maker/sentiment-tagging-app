@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import google.generativeai as genai
@@ -5,13 +6,22 @@ import time
 from google.api_core.exceptions import ResourceExhausted
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
+from openrouter import OpenRouter
+import os
+# ----------------------------
+# Gemini API Key
+# ----------------------------
+
+client = OpenRouter(
+    api_key=st.secrets["API_KEY"]
+)
 
 # ----------------------------
 # Gemini API Key
 # ----------------------------
-genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+# genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-model = genai.GenerativeModel("gemini-2.5-flash")
+# model = genai.GenerativeModel("gemini-2.5-flash")
 
 # ----------------------------
 # Streamlit UI
@@ -37,10 +47,14 @@ st.write("**Please note that we are currently using a trial version of the softw
 
 uploaded_file = st.file_uploader("Upload File", type=["xlsx", "csv"])
 
+user_context = st.text_area(
+    "Enter Context about the data (e.g., episode info, event, brand tone)",
+    height=150
+)
 # ----------------------------
 # Gemini Function
 # ----------------------------
-def analyze_comment(comment, tag_list):
+def analyze_comment(comment, tag_list, context):
 
     tag_string = ", ".join(tag_list)
 
@@ -52,11 +66,20 @@ def analyze_comment(comment, tag_list):
         Existing Tags:
         {tag_string}
 
+        Context: {context}
+
         Tasks:
 
-        1. Generate a short and meaningful tag.
-        2. Detect sentiment: Positive, Negative, or Neutral.
-        3. Detect abusive or offensive language.
+        1. Check if the comment is RELEVANT to the given context.
+        2. If NOT relevant:
+            1. Tag: Irrelevant
+            2. Sentiment: Neutral
+            3. Abuse: No
+        3. If relevant:
+            1. Generate a short and meaningful tag.
+            2. Detect sentiment: Positive, Negative, or Neutral.
+            3. Detect abusive or offensive language.
+            4. Generate a short description of the comment BASED ON CONTEXT
 
         Abuse Detection Rules:
 
@@ -66,6 +89,7 @@ def analyze_comment(comment, tag_list):
         - Abuse should only be marked when the intention is insulting, offensive, or harmful.
         - If abuse is present → Abuse = Yes and Sentiment = Negative.
         - If vulgar/slang words are used positively or emotionally → Abuse = No.
+
 
         Tag Rules:
 
@@ -87,18 +111,31 @@ def analyze_comment(comment, tag_list):
         Abuse: Yes/No
         """
     try:
-        response = model.generate_content(prompt)
-        text = response.text
+        response = client.chat.send(
+            model="anthropic/claude-sonnet-4.6",
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        }
+                    ]
+                }
+            ],
+            max_tokens= 500 
+        )
 
-    except ResourceExhausted:
-        st.warning("Quota exceeded. Waiting 60 seconds...")
-        time.sleep(60)
-        response = model.generate_content(prompt)
-        text = response.text
+        text = response.choices[0].message.content
+    except Exception as e:
+        st.error(f"API Error: {e}")
+        text = ""
 
     tag = ""
     sentiment = ""
     abuse = "No"
+
 
     for line in text.split("\n"):
 
@@ -176,7 +213,8 @@ if uploaded_file:
 
                 tag, sentiment, abuse = analyze_comment(
                     comment,
-                    st.session_state.tag_list
+                    st.session_state.tag_list,
+                    user_context
                 )
 
                 if tag and tag not in st.session_state.tag_list:
